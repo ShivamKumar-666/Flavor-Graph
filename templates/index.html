@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlavorGraph 🍲</title>
+    <style>
+        /* Modern Font & Color Scheme */
+        :root {
+            --primary-color: #6D28D9; /* Deep Violet */
+            --secondary-color: #4ADE80; /* Bright Green */
+            --background-color: #F3F4F6; /* Light Gray */
+            --surface-color: #FFFFFF;
+            --text-color: #1F2937; /* Dark Slate */
+            --muted-text-color: #6B7280;
+            --border-color: #E5E7EB;
+            --danger-color: #EF4444;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        /* Header & Main Container */
+        h1 {
+            color: var(--primary-color);
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .pantry-section {
+            background: var(--surface-color);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+        }
+
+        /* Form Elements */
+        #ingredient-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 1.5rem;
+        }
+
+        #ingredient-input {
+            flex-grow: 1;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        #ingredient-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.2);
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s, background-color 0.3s;
+        }
+        button:active {
+            transform: scale(0.98);
+        }
+
+        #add-btn {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        #search-btn {
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        /* Ingredient Pills */
+        #pantry-list {
+            list-style: none;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        #pantry-list li {
+            background: var(--primary-color);
+            color: white;
+            padding: 6px 14px;
+            border-radius: 16px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        #pantry-list li .remove-btn {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        #pantry-list li .remove-btn:hover {
+            opacity: 1;
+        }
+
+        /* Results Section */
+        .results-section {
+            margin-top: 2rem;
+        }
+
+        .recipe-card {
+            background: var(--surface-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: slideUpFadeIn 0.5s ease-out forwards;
+        }
+
+        .recipe-card h3 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+
+        .recipe-card .score {
+            font-weight: 600;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 14px;
+        }
+        
+        .ingredient-list { padding-left: 20px; font-size: 15px; }
+        .ingredient-list li { margin-bottom: 5px; }
+        .missing { color: var(--danger-color); }
+        .substituted { color: #F59E0B; } /* Amber color */
+
+        details > summary {
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 1rem;
+            color: var(--primary-color);
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes slideUpFadeIn {
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🍲 FlavorGraph</h1>
+
+    <div class="pantry-section">
+        <h2>What's in your pantry?</h2>
+        <form id="ingredient-form" onsubmit="return false;">
+            <input type="text" id="ingredient-input" placeholder="e.g., chicken, rice, garlic" autocomplete="off">
+            <button id="add-btn" type="button" onclick="addIngredient()">Add</button>
+        </form>
+        <ul id="pantry-list"></ul>
+        <button id="search-btn" onclick="searchRecipes()">Find Recipes!</button>
+    </div>
+
+    <div class="results-section" id="results"></div>
+
+    <script>
+        const ingredientInput = document.getElementById('ingredient-input');
+        const pantryList = document.getElementById('pantry-list');
+        const resultsDiv = document.getElementById('results');
+        
+        let availableIngredients = new Set(); // Use a Set for easier management
+
+        ingredientInput.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                addIngredient();
+            }
+        });
+
+        function addIngredient() {
+            const ingredientName = ingredientInput.value.trim().toLowerCase();
+            if (ingredientName && !availableIngredients.has(ingredientName)) {
+                availableIngredients.add(ingredientName);
+                renderPantry();
+                ingredientInput.value = '';
+            }
+            ingredientInput.focus();
+        }
+        
+        function removeIngredient(name) {
+            availableIngredients.delete(name);
+            renderPantry();
+        }
+
+        function renderPantry() {
+            pantryList.innerHTML = '';
+            availableIngredients.forEach(name => {
+                const li = document.createElement('li');
+                li.textContent = name;
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-btn';
+                removeBtn.innerHTML = '&times;';
+                removeBtn.onclick = () => removeIngredient(name);
+                li.appendChild(removeBtn);
+                pantryList.appendChild(li);
+            });
+        }
+
+        async function searchRecipes() {
+            if (availableIngredients.size === 0) {
+                alert('Please add some ingredients to your pantry first!');
+                return;
+            }
+
+            resultsDiv.innerHTML = '<h3>Searching for the best recipes...</h3>';
+            const ingredientsArray = Array.from(availableIngredients);
+
+            try {
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ingredients: ingredientsArray }),
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const recipes = await response.json();
+                displayRecipes(recipes);
+
+            } catch (error) {
+                resultsDiv.innerHTML = '<p>Sorry, an error occurred while searching.</p>';
+                console.error('Error:', error);
+            }
+        }
+
+        function displayRecipes(recipes) {
+            if (recipes.length === 0) {
+                resultsDiv.innerHTML = '<h3>No matching recipes found. Try adding more ingredients!</h3>';
+                return;
+            }
+
+            resultsDiv.innerHTML = '';
+            
+            recipes.forEach((recipe, index) => {
+                const missingHtml = (recipe.missing_ingredients || []).map(ing => `<li class="missing">${ing} (Missing)</li>`).join('');
+                const substitutedHtml = (recipe.substituted_ingredients || []).map(ing => `<li class="substituted">${ing} (Substituted)</li>`).join('');
+
+                const card = document.createElement('div');
+                card.className = 'recipe-card';
+                card.style.animationDelay = `${index * 0.1}s`; // Staggered animation
+                card.innerHTML = `
+                    <h3>${recipe.title}</h3>
+                    <p><span class="score">${recipe.score}% Match</span></p>
+                    <p><strong>Ingredient Status:</strong></p>
+                    <ul class="ingredient-list">
+                        ${substitutedHtml}
+                        ${missingHtml}
+                    </ul>
+                    <details>
+                        <summary>View Instructions</summary>
+                        <p>${recipe.instructions.replace(/\n/g, '<br>')}</p>
+                    </details>
+                `;
+                resultsDiv.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>
